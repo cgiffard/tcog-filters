@@ -1,0 +1,25 @@
+{
+  "name": "tcog-filters-parser",
+  "version": "0.0.1",
+  "description": "Parses the tcog filter syntax",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "mocha -R spec ./tests",
+    "build": "make"
+  },
+  "keywords": [
+    "tcog",
+    "filter",
+    "parser"
+  ],
+  "author": "",
+  "private": "true",
+  "devDependencies": {
+    "pegjs": "~0.8.0",
+    "mocha": "~1.17.1",
+    "chai": "~1.9.0"
+  }
+}

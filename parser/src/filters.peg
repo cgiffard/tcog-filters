@@ -1,0 +1,265 @@
+// `tcog` Filter Syntax Parser Grammar
+
+// A set of filter chains, a document, is always a list of zero or more chains,
+// delimited by a special `chainDelimiter`.
+
+document
+	= chains:chain*
+	{ return { "chains": chains || [] }; }
+
+// A filter chain is a list of filter blocks, each separated by a pipe operator.
+// The pipe operator is optional where the filter block is unambiguously
+// terminated by another operator or where a filter block is considered closed
+// (for example, upon encountering the final `]` in an array subsetting
+// operation.)
+//
+// The pipe is also optional at the termination of a filter chain.
+
+chain
+	= filters:filterBlock+ chainDelimiter?
+	{ return { "filters": filters || [] }; }
+
+// A filter chain delimiter is a comma, surrounded with zero or more whitespace
+// characters.
+
+chainDelimiter
+	= whitespace? ',' whitespace?
+
+// A filter block is a single filter operation, delimited by a conditionally
+// optional pipe operator.
+
+filterBlock
+	= filter:filter ( pipe? )
+	{ return filter; }
+
+// A pipe is the piping `|` operator surrounded by optional whitespace.
+
+pipe
+	= whitespace? '|' whitespace?
+
+// A filter is a local function call, regular expression match, regular
+// expression substitution, array subsetting operation, property access
+// operation, or property assignment operation.
+
+filter
+	= regularSubstitution
+	/ regularMatch
+	/ readwriteOperation
+	/ propertyAccessCall
+	/ functionCall
+	/ arraySubset
+
+// A function call is a string name consisting of the latin characters
+// a-zA-Z0-9, and an optional comma-delimited, parenthesis-enclosed list of
+// arguments, which can be strings or numbers.
+
+functionCall
+	= name:functionName args:functionArgumentsList
+	{ return { "function": name, "arguments": args }; }
+	/ name:functionName
+	{ return { "function": name }; }
+
+// A function name is a string consisting of the latin characters a-zA-Z0-9_.
+
+functionName
+	= name:[a-zA-Z0-9\_]+
+	{ return name.join(""); }
+
+// Function arguments are a parenthesis-bounded, comma delimited list of strings
+// or numbers.
+
+functionArgumentsList
+	= argListStart args:funcArgListItems argListStop
+	{ return args; }
+
+funcArgListItems
+	= args:funcArgDelimitedList* finalArg:functionArgument
+	{ return ( args || [] ).concat(finalArg); }
+
+argListStart
+	= '(' whitespace?
+
+argListStop
+	= whitespace? ')'
+
+funcArgDelim
+	= whitespace? ',' whitespace?
+	{ return null; }
+
+funcArgDelimitedList
+	= arg:functionArgument funcArgDelim
+	{ return arg; }
+
+// Function arguments can be strings or numbers.
+
+functionArgument
+	= string:string
+	{ return String(string); }
+	/ number:number
+	{ return parseFloat(number); }
+
+// A string is a double or single quoted list of characters.
+
+string
+	= '"' chars:characterDouble* '"'
+	{ return ( chars || [] ).join(""); }
+	/ "'" chars:characterSingle* "'"
+	{ return ( chars || [] ).join(""); }
+
+// Double quoted strings may contain double-quotation marks, but only should
+// those quotation marks be appropriately escaped.
+
+characterDouble
+	= '\\"'
+	{ return '"'; }
+	/ char:[^"]
+	{ return char; }
+
+// Single quoted strings may contain single-quotation marks, but only should
+// those quotation marks be appropriately escaped.
+
+characterSingle
+	= "\\'"
+	{ return "'"; }
+	/ char:[^']
+	{ return char; }
+
+// Numbers are lists of digits with an optional sign, followed by an optional
+// decimal point and an additional list of digits.
+
+number
+	= sign:sign? digits:digits float:float?
+	{ return parseFloat((sign||"") + digits + (float||"")); }
+
+integer
+	= sign:sign? digits:digits
+	{ return parseInt((sign||"") + digits); }
+
+sign
+	= sign:[\-+]
+	{ return sign; }
+
+digits
+	= digits:[0-9]+
+	{ return ( digits || [] ).join(""); }
+
+decimal
+	= [\.]
+	{ return "."; }
+
+float
+	= decimal:decimal digits:digits
+	{ return decimal + digits; }
+
+// A property access call is a full-stop/period (`.`) separated list of strings
+// consisting of the characters [a-zA-Z0-9\_]+.
+
+propertyAccessCall
+	= '.' list:propertyAccessList* final:propertyAccessName
+	{ return { "property": ( list || [] ).concat(final) }; }
+
+propertyAccessList
+	= name:propertyAccessName '.'
+	{ return name; }
+
+propertyAccessName
+	= name:[a-zA-Z0-9\_]+
+	{ return name.join(""); }
+
+// A regular match is a single-barrelled (one match block) regular expression
+// preceded by an 'm' flag denoting the match, a regular expression bounded by
+// '/' characters, and followed by an optional list of flags controlling regular
+// match behaviour.
+
+regularMatch
+	= 'm' '/' find:( '\\/' / [^\/] )+ '/' flags:[ig]*
+	{
+		return {
+			"match": {
+				find:		(find || []).join(""),
+				flags:		(flags || []).join("")
+			}
+		};
+	}
+
+// A regular substitution is a double-barrelled (one match block, one substitue
+// block) preceded by an 's' flag denoting the substitution, a regular
+// expression bounded by '/' characters, a substitution bounded by a further '/'
+// character, and followed by an optional list of flags controlling substitution
+// behaviour.
+
+regularSubstitution
+	= 's' '/' find:('\\/'/[^\/])+ '/' replace:('\\/'/[^\/])+ '/' flags:[ig]*
+	{
+		return {
+			"substitute": {
+				find:		(find || []).join(""),
+				replace:	(replace || []).join(""),
+				flags:		(flags || []).join("")
+			}
+		};
+	}
+
+// An array subset is a list of hyphen `-` separated ranges themselves delimited
+// by commas `,`, preceded by a left square bracket `]` and terminated by a
+// right square bracket `]`.
+
+arraySubset
+	= arrayStartDelim list:rangeList arrayEndDelim
+	{ return { "subset": list }; }
+
+arrayStartDelim
+	= '[' whitespace?
+
+arrayEndDelim
+	= whitespace? ']' whitespace?
+
+rangeList
+	= list:rangeListRepeat* final:range
+	{ return ( list || [] ).concat(final); }
+
+rangeListRepeat
+	= range:range listDelim
+	{ return range; }
+
+listDelim
+	= whitespace? ',' whitespace?
+
+range
+	= from:integer rangeDelim to:integer
+	{ return { "range": [from, to] }; }
+	/ index:integer
+	{ return { "index": index }; }
+
+rangeDelim
+	= whitespace? '-' whitespace?
+
+// A pre-operator may be '>' for property assignment, or '>' for property
+// access.
+
+readwriteOperation
+	= propertyAssignmentOperator operand:operandVariable
+	{ return { "assign": operand } }
+	/ propertyAccessOperator operand:operandVariable
+	{ return { "access": operand } }
+
+propertyAssignmentOperator
+	= whitespace? '>' whitespace?
+
+propertyAccessOperator
+	= whitespace? '<' whitespace?
+
+// An operand variable may be a property access name only.
+
+operandVariable
+	= propertyAccessName
+
+// Whitespace is whitespace!
+
+whitespace
+	= whitespaceChars+
+
+whitespaceChars
+	= ' '
+	/ '\n'
+	/ '\t'

@@ -1,0 +1,24 @@
+{
+  "name": "tcog-filters-runtime",
+  "version": "0.0.1",
+  "description": "Evaluates filter chains from pre-parsed filter syntax",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "mocha -R spec ./tests"
+  },
+  "keywords": [
+    "tcog",
+    "filter",
+    "runtime"
+  ],
+  "author": "",
+  "private": "true",
+  "devDependencies": {
+    "pegjs": "~0.8.0",
+    "mocha": "~1.17.1",
+    "chai": "~1.9.0"
+  }
+}
