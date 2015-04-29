@@ -1,3 +1,11 @@
+# tcog-filters
+
+A nifty little component discarded from an application, which would have been
+lost to the sands of time and may become something yet. The original readme
+follows.
+
+-----------------
+
 # Filters
 
 Filters are a flexible system `tcog` provides in order to facilitate the
